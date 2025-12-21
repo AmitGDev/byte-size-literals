@@ -1,0 +1,32 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-byte-size-literals",
+            "type": "shell",
+            "command": "py",
+            "args": [
+                "${workspaceFolder}/build.py",
+                "--build",
+                "--config",
+                "Debug"
+            ],
+            "options": {
+                "shell": {
+                    "executable": "powershell.exe"
+                }
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        }
+    ]
+}
