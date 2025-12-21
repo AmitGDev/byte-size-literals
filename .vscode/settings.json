@@ -1,0 +1,35 @@
+{
+    "editor.formatOnSave": true,
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    },
+    "[cpp]": {
+        "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+    },
+    "[c]": {
+        "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+    },
+    "ruff.lint.enable": true,
+    "ruff.format.enable": true,
+    "ruff.organizeImports": true,
+    "clangd.arguments": [
+        "--header-insertion=never",
+        "--background-index=false",
+        "--compile-commands-dir=${workspaceFolder}/cli/build",
+        "--query-driver=C:/PROGRA~1/MICROS~2/18/COMMUN~1/VC/Tools/MSVC/1450~1.357/bin/Hostx64/x64/cl.exe"
+    ],
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.errorSquiggles": "disabled",
+    "C_Cpp.formatting": "disabled",
+    "terminal.integrated.profiles.windows": {
+        "Developer PowerShell": {
+            "source": "PowerShell",
+            "args": [
+                "-noexit",
+                "-command",
+                "& { $vsPath = & \"${env:ProgramFiles(x86)}\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationpath; Import-Module \"$vsPath\\Common7\\Tools\\Microsoft.VisualStudio.DevShell.dll\"; Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64' }"
+            ]
+        }
+    },
+    "terminal.integrated.defaultProfile.windows": "Developer PowerShell"
+}
