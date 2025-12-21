@@ -1,3 +1,9 @@
+# ---- Custom additions ----
+
+build/
+
+# ---- GitHub template content ----
+
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles
