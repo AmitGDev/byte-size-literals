@@ -1,48 +1,60 @@
 name: 'Setup C++ Build Environment'
 description: 'Installs clang-tidy, ninja, and configures build environment'
-
 runs:
   using: 'composite'
   steps:
     - name: Setup MSVC environment
       if: runner.os == 'Windows'
-      uses: microsoft/setup-msbuild@v2
-      with:
-        vs-version: '17.0'
+      uses: ilammy/msvc-dev-cmd@v1
 
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
+      env:
+        LLVM_VERSION: '22.1.0'
       run: |
-        choco install llvm --version=20.1.8 -y
+        $ErrorActionPreference = 'Stop'
+
+        # Install LLVM directly from GitHub releases
+        $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$env:LLVM_VERSION/LLVM-$env:LLVM_VERSION-win64.exe"
+        Invoke-WebRequest -Uri $url -OutFile "llvm-installer.exe"
+        Start-Process -FilePath "llvm-installer.exe" -ArgumentList "/S" -Wait
+
+        # Add to PATH for this step and subsequent steps
         echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        clang-tidy --version
+        $env:PATH = "C:\Program Files\LLVM\bin;$env:PATH"
+
+        # Verify versions
+        echo "=== Installed versions (Windows) ==="
+        cl 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -imatch "Version" } | Select-Object -First 1
         ninja --version
+        clang-format --version
+        clang-tidy --version
 
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
       shell: bash
+      env:
+        LLVM_VERSION: '22.1.0'
       run: |
-        # Add LLVM 20 official repository
-        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-        sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" -y
-        sudo apt-get update
-        
-        # Install LLVM 20 tools
-        sudo apt-get install -y clang-tidy-20 clang-20 ninja-build
-        
-        # Set as default (force update-alternatives)
-        sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-20 100
-        sudo update-alternatives --set clang-tidy /usr/bin/clang-tidy-20
-        
-        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100
-        sudo update-alternatives --set clang /usr/bin/clang-20
-        
-        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100
-        sudo update-alternatives --set clang++ /usr/bin/clang++-20
-        
+        # Install LLVM directly from GitHub releases
+        echo "Downloading LLVM ${LLVM_VERSION}..."
+        curl -fsSL -o LLVM-${LLVM_VERSION}-Linux-X64.tar.xz \
+          https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/LLVM-${LLVM_VERSION}-Linux-X64.tar.xz
+        echo "Download complete."
+        tar -xf LLVM-${LLVM_VERSION}-Linux-X64.tar.xz
+        sudo mv LLVM-${LLVM_VERSION}-Linux-X64 /usr/local/llvm
+
+        # Add to PATH for this step and subsequent steps
+        echo "/usr/local/llvm/bin" >> $GITHUB_PATH
+        export PATH="/usr/local/llvm/bin:$PATH"
+
+        # Install ninja
+        sudo apt-get install -y -qq -o Dpkg::Use-Pty=0 ninja-build
+
         # Verify versions
-        echo "=== Installed versions ==="
-        clang-tidy --version
+        echo "=== Installed versions (Linux) ==="
         clang++ --version
         ninja --version
+        clang-format --version
+        clang-tidy --version

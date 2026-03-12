@@ -73,56 +73,62 @@ This separation keeps workflows clean, maintainable, and cross-platform without 
 ### `check-formatting`
 Validates C++ source files against clang-format rules. Fails the build if formatting issues are detected.
 
-**Platforms:** Cross-platform (uses bash)  
+**Platforms:** Cross-platform (uses bash)
 **Input:** None  
 **Output:** Exit code 0 (success) or 1 (formatting issues)
 
 ---
 
 ### `setup-cpp-tools`
-Installs and configures the C++ build environment with pinned LLVM 20.1.8:
-- **Windows:** LLVM 20.1.8 (clang-tidy, clang-format), Ninja, MSVC 2022
-- **Linux:** LLVM 20.1.8 (clang-tidy-20, clang-20) via official LLVM apt repository, ninja-build
+Installs and configures a fully reproducible C++ toolchain with **pinned LLVM 22.1.0**.
 
-**Important:** Both platforms use the **exact same LLVM version (20.1.8)** to ensure consistent static analysis results.
+- **Windows:**
+  - MSVC 2022 environment (via `msvc-dev-cmd`)
+  - LLVM **22.1.0** (clang-format, clang-tidy) installed from the official LLVM GitHub release  
 
-**Platforms:** Windows, Linux  
+- **Linux:**  
+  - Ninja build system
+  - LLVM **22.1.0** (clang-format, clang-tidy, clang++) installed from the official LLVM GitHub release  
+
+**Important:** Both platforms use the **exact same LLVM version (22.1.0)** to ensure consistent formatting and static-analysis results across CI.
+
+**Platforms:** Windows, Linux
 **Input:** None  
-**Output:** Tools available in PATH
+**Output:** LLVM and Ninja added to `PATH` for all subsequent steps
 
 ---
 
 ### `configure-cmake`
 Configures the CMake build system with platform-specific compilers:
-- **Windows:** MSVC (cl.exe) with x64 architecture
+- **Windows:** MSVC (cl.exe) with x64 architecture  
 - **Linux:** Clang (clang++)
 
-**Platforms:** Windows, Linux  
-**Input:** `config` (Debug/Release)  
+**Platforms:** Windows, Linux
+**Input:** `config` (Debug/Release)
 **Output:** Build directory with CMake configuration
 
 ---
 
 ### `build-project`
 Compiles the C++ project using CMake and Ninja:
-- **Windows:** Uses MSVC x64 toolchain
+- **Windows:** Uses MSVC x64 toolchain  
 - **Linux:** Uses Clang
 
-**Platforms:** Windows, Linux  
-**Input:** `config` (Debug/Release)  
+**Platforms:** Windows, Linux
+**Input:** `config` (Debug/Release)
 **Output:** Compiled binaries and compilation database
 
 ---
 
 ### `run-clang-tidy`
 Executes clang-tidy static analysis with project-specific configuration:
-- Parallel execution (uses all available CPU cores)
+- Parallel execution (uses all available CPU cores)  
 - Warnings treated as errors
 - Header filter: `source/.*`
 - Source filter: `source/.*`
 
-**Platforms:** Windows, Linux  
-**Input:** `build-dir` (default: `build`)  
+**Platforms:** Windows, Linux
+**Input:** `build-dir` (default: `build`)
 **Output:** Static analysis results (fails on warnings)
 
 ## Configuration
@@ -212,22 +218,18 @@ runs:
 ### Updating Dependencies
 
 **LLVM version (both platforms):**
-Both Windows and Linux are pinned to **LLVM 20.1.8** for consistency.
+Both Windows and Linux are pinned to **LLVM 22.1.0** for consistency.
 
 To update to a newer version, edit `.github/actions/setup-cpp-tools/action.yml`:
 
 **Windows:**
 ```yaml
-choco install llvm --version=20.1.8 -y  # Update version here
+LLVM_VERSION: '22.1.0'  # Update this value
 ```
 
 **Linux:**
 ```yaml
-# Update repository URL to match new version
-sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" -y
-
-# Update package names
-sudo apt-get install -y clang-tidy-20 clang-20 ninja-build  # Change -20 to new version
+LLVM_VERSION: '22.1.0'  # Update this value
 ```
 
 **Important:** Keep both platforms synchronized to ensure consistent static analysis results across all CI/CD runs.
@@ -241,14 +243,15 @@ sudo apt-get install -y clang-tidy-20 clang-20 ninja-build  # Change -20 to new 
 
 ### Common Issues
 
-**Issue:** "compile_commands.json not found"  
-**Solution:** Ensure CMake is configured with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` (should be automatic with Ninja)
+**Issue:** "compile_commands.json not found".
+**Solution:** Ensure CMake is configured with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` (should be automatic with Ninja). Note: MSVC does not support generating `compile_commands.json` with MSBuild. This is why the workflow uses Ninja on Windows - Ninja allows CMake to generate the compilation database even when MSVC is the compiler.
 
-**Issue:** clang-tidy warnings fail the build  
+
+**Issue:** clang-tidy warnings fail the build.
 **Solution:** Fix the warnings or adjust `.clang-tidy` configuration
 
-**Issue:** Different clang-tidy versions on Windows vs Linux  
-**Solution:** Both platforms are pinned to LLVM 20.1.8 in the `setup-cpp-tools` action
+**Issue:** Different clang-tidy versions on Windows vs Linux.
+**Solution:** Both platforms are pinned to LLVM 22.1.0 in the `setup-cpp-tools` action
 
 ## Benefits of This Architecture
 
@@ -270,5 +273,5 @@ When adding new workflows or actions:
 
 ---
 
-**Last Updated:** December 2025  
+**Last Updated:** March 2026
 **Maintainer:** Project Team
