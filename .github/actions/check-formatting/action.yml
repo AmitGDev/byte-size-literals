@@ -1,0 +1,54 @@
+name: 'Check Code Formatting'
+description: 'Checks C++ code formatting with clang-format'
+
+runs:
+  using: 'composite'
+
+  steps:
+    - name: Check formatting
+      shell: pwsh
+      run: |
+        Write-Host "Running clang-format on source files with .clang-format config..."
+
+        $files = @(git ls-files '*.cpp' '*.h' '*.hpp' '*.cc' '*.cxx' | ForEach-Object {
+          Get-Item $_ -ErrorAction SilentlyContinue
+        } | Where-Object { $_ -ne $null })
+
+        if ($files.Count -eq 0) {
+          Write-Host "No C++ source files found to check." -ForegroundColor Yellow
+          exit 0
+        }
+
+        Write-Host "Found $($files.Count) file(s) to check"
+
+        $formattingIssues = @()
+
+        foreach ($file in $files) {
+          Write-Host "Checking format: $($file.FullName)"
+
+          $output = clang-format --style=file --dry-run --Werror $file.FullName 2>&1
+
+          if ($LASTEXITCODE -ne 0) {
+            $formattingIssues += $file.FullName
+            Write-Host "  Formatting issues found" -ForegroundColor Red
+            Write-Host $output
+          }
+          else {
+            Write-Host "  Properly formatted" -ForegroundColor Green
+          }
+        }
+
+        if ($formattingIssues.Count -gt 0) {
+          Write-Host "`nclang-format found formatting issues in $($formattingIssues.Count) file(s):" -ForegroundColor Red
+
+          $formattingIssues | ForEach-Object {
+            Write-Host "  - $_" -ForegroundColor Yellow
+          }
+
+          Write-Host "`nTo fix these issues locally, run:" -ForegroundColor Cyan
+          Write-Host "  clang-format -i <file>" -ForegroundColor Cyan
+
+          exit 1
+        }
+
+        Write-Host "`nAll files are properly formatted!" -ForegroundColor Green
