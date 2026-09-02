@@ -1,0 +1,73 @@
+name: 'Run clang-tidy'
+description: 'Runs clang-tidy static analysis against the compilation database'
+
+inputs:
+  build-dir:
+    description: 'Build directory containing compile_commands.json'
+    required: true
+    default: 'build'
+
+runs:
+  using: 'composite'
+
+  steps:
+    - name: Run clang-tidy
+      shell: pwsh
+      run: |
+        $buildDir = "${{ inputs.build-dir }}"
+        $compileCommands = Join-Path $buildDir "compile_commands.json"
+
+        if (-not (Test-Path $compileCommands)) {
+          Write-Host "ERROR: $compileCommands not found." -ForegroundColor Red
+          exit 1
+        }
+
+        Write-Host "clang-tidy version:"
+        clang-tidy --version
+
+        Write-Host ""
+        Write-Host "clang-tidy configuration:"
+        clang-tidy --dump-config
+
+        # Analyze C++ source files that are actually present in the source tree.
+        $files = @(Get-ChildItem -Path src -Filter *.cpp -Recurse -ErrorAction SilentlyContinue)
+
+        if ($files.Count -eq 0) {
+          Write-Host "ERROR: No C++ source files found to analyze." -ForegroundColor Red
+          exit 1
+        }
+
+        Write-Host ""
+        Write-Host "Found $($files.Count) source file(s) to analyze:"
+        $files | ForEach-Object {
+          Write-Host "  $($_.FullName)"
+        }
+
+        $issueCount = 0
+
+        foreach ($file in $files) {
+          Write-Host ""
+          Write-Host "Checking $($file.FullName)"
+
+          $output = clang-tidy `
+            -p $buildDir `
+            $file.FullName `
+            "-warnings-as-errors=*" 2>&1
+
+          if ($LASTEXITCODE -ne 0) {
+            $issueCount++
+            Write-Host "Issues found in $($file.Name)" -ForegroundColor Yellow
+          }
+
+          Write-Host $output
+        }
+
+        Write-Host ""
+
+        if ($issueCount -gt 0) {
+          Write-Host "clang-tidy found issues in $issueCount file(s)." -ForegroundColor Red
+          exit 1
+        }
+
+        Write-Host "clang-tidy completed successfully. All files passed." -ForegroundColor Green
+
