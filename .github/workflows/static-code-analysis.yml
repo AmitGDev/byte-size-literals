@@ -3,19 +3,49 @@ name: "Static Code Analysis Recipe"
 on:
   push:
     branches: ["*"]
+    paths-ignore: &ignore_policy
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+  
   pull_request:
     branches: ["*"]
+    paths-ignore: *ignore_policy
+
   schedule:
     - cron: '0 6 * * 0'
+
   workflow_dispatch:
 
-env:
-  CODEQL_ENABLED: 1  # Set to '1' to enable CodeQL analysis, '0' to disable
-
 jobs:
+  process-analysis-config:
+    name: Process analysis config
+    runs-on: ubuntu-latest
+
+    outputs:
+      os: ${{ steps.config.outputs.os }}
+      configurations: ${{ steps.config.outputs.configurations }}
+      codeql: ${{ steps.config.outputs.codeql }}
+
+    steps:
+      - name: Checkout configuration
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/actions/process-analysis-config
+            .github/static-code-analysis.json
+          sparse-checkout-cone-mode: false
+
+      - name: Process configuration
+        id: config
+        uses: ./.github/actions/process-analysis-config
+
   analyze:
     name: Analyze (${{ matrix.os }}, ${{ matrix.config }})
+    needs: process-analysis-config
     runs-on: ${{ matrix.os }}
+
     permissions:
       actions: read
       contents: read
@@ -24,8 +54,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
-        config: ['Debug', 'Release']
+        os: ${{ fromJSON(needs.process-analysis-config.outputs.os) }}
+        config: ${{ fromJSON(needs.process-analysis-config.outputs.configurations) }}
 
     steps:
       - name: Checkout repository
@@ -33,23 +63,23 @@ jobs:
 
       - name: Setup C++ dependencies
         uses: ./.github/actions/setup-cpp-dependencies
-        
+
       - name: Setup C++ environment
         uses: ./.github/actions/setup-cpp-environment
 
       - name: Check code formatting
         uses: ./.github/actions/check-formatting
 
-      - name: Initialize CodeQL
-        if: env.CODEQL_ENABLED == '1'
-        uses: github/codeql-action/init@v4
-        with:
-          languages: cpp
-
       - name: Configure CMake
         uses: ./.github/actions/configure-cmake
         with:
           config: ${{ matrix.config }}
+
+      - name: Initialize CodeQL
+        if: needs.process-analysis-config.outputs.codeql == '1'
+        uses: github/codeql-action/init@v4
+        with:
+          languages: cpp
 
       - name: Build project
         uses: ./.github/actions/build-project
@@ -63,6 +93,7 @@ jobs:
               Write-Host "ERROR: compile_commands.json not found!" -ForegroundColor Red
               exit 1
           }
+
           Write-Host "Found $(((Get-Content build/compile_commands.json | ConvertFrom-Json).Count)) entries in compilation database"
 
       - name: Run clang-tidy
@@ -71,7 +102,7 @@ jobs:
           build-dir: build
 
       - name: Perform CodeQL Analysis
-        if: env.CODEQL_ENABLED == '1'
+        if: needs.process-analysis-config.outputs.codeql == '1'
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:cpp/os:${{ matrix.os }}/config:${{ matrix.config }}"
